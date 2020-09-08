@@ -23,6 +23,8 @@ d_handler = DiscordHandler()
 # TODO: make live assignment reminder/new announcement feature
 # TODO: make send assignments due in n time from now
 # TODO: finish untrack
+# TODO: make unlive
+# TODO: change timezone from gmt to pst
 
 @client.event
 async def on_ready():
