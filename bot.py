@@ -23,13 +23,10 @@ d_handler = DiscordHandler()
 
 # TODO: make live assignment reminder/new announcement feature
 # TODO: make send assignments due in n time from now
-# TODO: make unlive
-# TODO: change timezone from gmt to pst
-# TODO: make documentation
-# TODO: add options for aliases for courses
 # TODO: add dm notification option using reaction
-# TODO: use dicts for channels_courses in canvas_handler
-# TODO: add guild in seperate func and not through track
+# TODO: make unlive
+# TODO: add options for aliases for courses (1)
+# TODO: make documentation
 
 @bot.event
 async def on_ready():
@@ -82,6 +79,10 @@ async def live(ctx):
 
 @bot.command()
 async def mode(ctx, mode):
+    if ctx.message.guild not in d_handler.guilds:
+        d_handler.guilds.append(ctx.message.guild)
+        d_handler.canvas_handlers.append(CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, ctx.message.guild))
+
     c_handler = d_handler.canvas_handlers[d_handler.guilds.index(ctx.message.guild)]
     c_handler.mode = mode
 

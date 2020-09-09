@@ -1,6 +1,7 @@
 from canvasapi.canvas import Canvas
 from canvasapi.course import Course
 from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
 import dateutil.parser.isoparser
 
 class CanvasHandler(Canvas):
@@ -151,15 +152,17 @@ class CanvasHandler(Canvas):
 
                 ctime_iso = assignment.__getattribute__("created_at")
                 dtime_iso = assignment.__getattribute__("due_at")
+
+                time_shift = timedelta(hours=4) #DST Pacific
                 if ctime_iso is None:
                     ctime_text = "No info"
                 else:
-                    ctime_text = dateutil.parser.isoparse(ctime_iso).strftime("%Y-%m-%d %H:%M:%S")
+                    ctime_text = (dateutil.parser.isoparse(ctime_iso)+time_shift).strftime("%Y-%m-%d %H:%M:%S")
                 if dtime_iso is None:
                     dtime_text = "No info"
                 else:
-                    dtime_text = dateutil.parser.isoparse(dtime_iso).strftime("%Y-%m-%d %H:%M:%S")
-
+                    dtime_text = (dateutil.parser.isoparse(dtime_iso)+time_shift).strftime("%Y-%m-%d %H:%M:%S")
+                                
                 data_list.append([title, url, short_desc, ctime_text, dtime_text])
 
         return data_list
