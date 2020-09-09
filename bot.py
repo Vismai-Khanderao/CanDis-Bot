@@ -22,11 +22,13 @@ d_handler = DiscordHandler()
 
 # TODO: make live assignment reminder/new announcement feature
 # TODO: make send assignments due in n time from now
-# TODO: finish untrack
 # TODO: make unlive
 # TODO: change timezone from gmt to pst
-# TODO: make c_handler for guild on !cd (part of process to change from client to bot)
+# TODO: change client to bot
 # TODO: make documentation
+# TODO: add options for aliases for courses
+# TODO: add dm notification option using reaction
+# TODO: use dicts for channels_courses in canvas_handler
 
 @client.event
 async def on_ready():

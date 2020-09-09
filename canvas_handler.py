@@ -90,7 +90,6 @@ class CanvasHandler(Canvas):
         if self.mode == "guild":
             for i in course_ids:
                 course_to_untrack = self.get_course(i)
-                print(course_to_untrack)
                 c_ids = [c.id for c in self.courses]
                 if course_to_untrack.id in c_ids:
                     del self.courses[c_ids.index(course_to_untrack.id)]
