@@ -26,6 +26,7 @@ d_handler = DiscordHandler()
 # TODO: make unlive
 # TODO: change timezone from gmt to pst
 # TODO: make c_handler for guild on !cd (part of process to change from client to bot)
+# TODO: make documentation
 
 @client.event
 async def on_ready():
