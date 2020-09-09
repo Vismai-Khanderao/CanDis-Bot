@@ -25,6 +25,7 @@ d_handler = DiscordHandler()
 # TODO: finish untrack
 # TODO: make unlive
 # TODO: change timezone from gmt to pst
+# TODO: make c_handler for guild on !cd (part of process to change from client to bot)
 
 @client.event
 async def on_ready():
@@ -35,18 +36,24 @@ async def on_ready():
 async def on_message(message):
     if message.author == client.user:
         return
-
+    
     if message.content.startswith('!cd track'):
         if message.guild not in d_handler.guilds:
             d_handler.guilds.append(message.guild)
             d_handler.canvas_handlers.append(CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, message.guild))
         
         c_handler = d_handler.canvas_handlers[d_handler.guilds.index(message.guild)]
-        c_handler.track_course(message.content.split(" ")[2:])
+        c_handler.track_course(message.content.split(" ")[2:], message.channel)
 
         course_names = []
-        for c in c_handler.courses:
-            course_names.append(c.name)
+        if c_handler.mode == "guild":
+            for c in c_handler.courses:
+                course_names.append(c.name)
+        elif c_handler.mode == "channels":
+            for channel_courses in c_handler.channels_courses:
+                if channel_courses[0] == message.channel:
+                    for c in channel_courses[1]:
+                        course_names.append(c.name)
 
         await message.channel.send("Tracking: " + ", ".join(course_names))
     
@@ -55,7 +62,7 @@ async def on_message(message):
 
     if message.content.startswith('!cd ass'):
         c_handler = d_handler.canvas_handlers[d_handler.guilds.index(message.guild)]
-        for data in c_handler.get_assignments():
+        for data in c_handler.get_assignments(message.channel):
             embed_var=discord.Embed(title=data[0], url=data[1], description=data[2], color=CANVAS_COLOR)
             embed_var.set_thumbnail(url=CANVAS_THUMBNAIL_URL)
             embed_var.add_field(name="Created at", value=data[3], inline=True)
@@ -64,7 +71,11 @@ async def on_message(message):
     
     if message.content.startswith('!cd live'):
         c_handler = d_handler.canvas_handlers[d_handler.guilds.index(message.guild)]
-        c_handler.live_channel = message.channel
+        c_handler.live_channels.append(message.channel)
+    
+    if message.content.startswith('!cd mode'):
+        c_handler = d_handler.canvas_handlers[d_handler.guilds.index(message.guild)]
+        c_handler.mode = message.content.split(" ")[2]
 
     # for testing only
     if message.content.startswith('!cd info'):
@@ -82,8 +93,9 @@ async def live_tracking():
     # WIP
     while True:
         for ch in d_handler.canvas_handlers:
-            if ch.live_channel is not None:
-                await ch.live_channel.send("Update")
+            if len(ch.live_channels) > 0:
+                for channel in ch.live_channels:
+                    await channel.send("Update")
         await asyncio.sleep(10)
 
 client.loop.create_task(live_tracking())

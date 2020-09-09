@@ -1,5 +1,5 @@
 class DiscordHandler:
-
+    # each guild has one canvas handler
     def __init__(self):
         self._canvas_handlers = []
         self._guilds = []

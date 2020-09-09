@@ -9,7 +9,9 @@ class CanvasHandler(Canvas):
         super().__init__(API_URL, API_KEY)
         self._courses = []
         self._guild = guild
-        self._live_channel = None
+        self._mode = "guild"
+        self._channels_courses = None # [[channel, [courses]]]
+        self._live_channels = []
     
     @property
     def courses(self):
@@ -24,46 +26,107 @@ class CanvasHandler(Canvas):
         return self._guild
     
     @property
-    def live_channel(self):
-        return self._live_channel
+    def mode(self):
+        return self._mode
     
-    @live_channel.setter
-    def live_channel(self, live_channel):
-        self._live_channel = live_channel
+    @mode.setter
+    def mode(self, mode):
+        self._mode = mode
+        self.courses = []
+        self.channels_courses = None
+        self.live_channels = []
     
-    def ids_converter(self, ids):
+    @property
+    def channels_courses(self):
+        return self._channels_courses
+    
+    @channels_courses.setter
+    def channels_courses(self, channels_courses):
+        self._channels_courses = channels_courses
+    
+    @property
+    def live_channels(self):
+        return self._live_channels
+    
+    @live_channels.setter
+    def live_channels(self, live_channels):
+        self._live_channels = live_channels
+        
+    def _ids_converter(self, ids):
         temp = []
         for i in ids:
             temp.append(int(i))
         return temp
-    
-    def track_course(self, course_ids):
-        course_ids = self.ids_converter(course_ids)
         
+    def track_course(self, course_ids, msg_channel):
+        course_ids = self._ids_converter(course_ids)
+                
+        if self.mode == "channels":
+            if self.channels_courses is None:
+                self.channels_courses = [[msg_channel, []]]
+
+            else:
+                channels = [channel_courses[0] for channel_courses in self.channels_courses]
+                if msg_channel not in channels:
+                    self.channels_courses.append([msg_channel, []])
+
+
         for i in course_ids:
-            print(i)
-            print(self.get_course(i).name)
-            self.courses.append(self.get_course(i))
-    
-    def untrack_course(self, course_ids):
-        course_ids = self.ids_converter(course_ids)
+            course_to_track = self.get_course(i)
 
-        for c in self.courses:
+            if self.mode == "guild":
+                if course_to_track not in self.courses:
+                    self.courses.append(course_to_track)
+
+            elif self.mode == "channels":
+                for channel_courses in self.channels_courses:
+                    if msg_channel == channel_courses[0]:
+                        if course_to_track not in channel_courses[1]:
+                            channel_courses[1].append(course_to_track)
+                        
+    def untrack_course(self, course_ids, msg_channel):
+        course_ids = self._ids_converter(course_ids)
+
+        if self.mode == "guild":
             for i in course_ids:
-                if c.course_id == i:
-                    self.courses.remove(c)
+                course_to_untrack = self.get_course(i)
 
-    def get_assignments(self, course_ids=None):
+                if course_to_untrack in self.courses:
+                    self.courses.remove(course_to_untrack)
+        
+        elif self.mode == "channels":
+            for channel_courses in self.channels_courses:
+                if msg_channel == channel_courses[0]:
+                    if course_to_untrack in channel_courses[1]:
+                        channel_courses[1].remove(course_to_untrack)
+                        if len(channel_courses[1]) == 0:
+                            self.channels_courses.remove(channel_courses)
+                        
+
+    def get_assignments(self, msg_channel, course_ids=None):
+        # TODO: reduce duplication here
         courses_assignments = []
         if course_ids is None:
-            for c in self.courses:
-                courses_assignments.append([c.name, c.get_assignments()])
-        
-        else:
-            course_ids = ids_converter(course_ids)
-            for c in self.courses:
-                if c.course_id in course_ids:
+            if self.mode == "guild":
+                for c in self.courses:
                     courses_assignments.append([c.name, c.get_assignments()])
+            elif self.mode == "channels":
+                for channel_courses in self.channels_courses:
+                    if msg_channel == channel_courses[0]:
+                        for c in channel_courses[1]:
+                            courses_assignments.append([c.name, c.get_assignments()])
+        else:
+            course_ids = self._ids_converter(course_ids)
+            if self.mode == "guild":
+                for c in self.courses:
+                    if c.course_id in course_ids:
+                        courses_assignments.append([c.name, c.get_assignments()])
+            elif self.mode == "channels":
+                for channel_courses in self.channels_courses:
+                    if msg_channel == channel_courses[0]:
+                        for c in channel_courses[1]:
+                            if c.course_id in course_ids:
+                                courses_assignments.append([c.name, c.get_assignments()])
         
         return self._get_assignment_data(courses_assignments)
 
