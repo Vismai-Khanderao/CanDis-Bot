@@ -109,7 +109,7 @@ class CanvasHandler(Canvas):
     def get_assignments(self, course_ids, msg_channel):
         # TODO: reduce duplication here
         courses_assignments = []
-        if course_ids is None:
+        if not course_ids:
             if self.mode == "guild":
                 for c in self.courses:
                     courses_assignments.append([c.name, c.get_assignments()])
