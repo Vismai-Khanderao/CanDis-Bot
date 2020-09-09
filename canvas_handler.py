@@ -90,20 +90,24 @@ class CanvasHandler(Canvas):
         if self.mode == "guild":
             for i in course_ids:
                 course_to_untrack = self.get_course(i)
-
-                if course_to_untrack in self.courses:
-                    self.courses.remove(course_to_untrack)
+                print(course_to_untrack)
+                c_ids = [c.id for c in self.courses]
+                if course_to_untrack.id in c_ids:
+                    del self.courses[c_ids.index(course_to_untrack.id)]
         
         elif self.mode == "channels":
             for channel_courses in self.channels_courses:
                 if msg_channel == channel_courses[0]:
-                    if course_to_untrack in channel_courses[1]:
-                        channel_courses[1].remove(course_to_untrack)
-                        if len(channel_courses[1]) == 0:
-                            self.channels_courses.remove(channel_courses)
+                    for i in course_ids:
+                        course_to_untrack = self.get_course(i)
+                        c_ids = [c.id for c in channel_courses[1]]
+                        if course_to_untrack.id in c_ids:
+                            del channel_courses[1][c_ids.index(course_to_untrack.id)]
+                            if len(channel_courses[1]) == 0:
+                                self.channels_courses.remove(channel_courses)
                         
 
-    def get_assignments(self, msg_channel, course_ids=None):
+    def get_assignments(self, course_ids, msg_channel):
         # TODO: reduce duplication here
         courses_assignments = []
         if course_ids is None:
@@ -119,13 +123,13 @@ class CanvasHandler(Canvas):
             course_ids = self._ids_converter(course_ids)
             if self.mode == "guild":
                 for c in self.courses:
-                    if c.course_id in course_ids:
+                    if c.id in course_ids:
                         courses_assignments.append([c.name, c.get_assignments()])
             elif self.mode == "channels":
                 for channel_courses in self.channels_courses:
                     if msg_channel == channel_courses[0]:
                         for c in channel_courses[1]:
-                            if c.course_id in course_ids:
+                            if c.id in course_ids:
                                 courses_assignments.append([c.name, c.get_assignments()])
         
         return self._get_assignment_data(courses_assignments)
@@ -161,5 +165,17 @@ class CanvasHandler(Canvas):
 
         return data_list
 
+    def get_course_names(self, msg_channel):
+        course_names = []
+        if self.mode == "guild":
+            for c in self.courses:
+                course_names.append(c.name)
+        elif self.mode == "channels":
+            for channel_courses in self.channels_courses:
+                if channel_courses[0] == msg_channel:
+                    for c in channel_courses[1]:
+                        course_names.append(c.name)
+        
+        return ", ".join(course_names)
 
 

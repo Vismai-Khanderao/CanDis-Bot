@@ -31,7 +31,6 @@ d_handler = DiscordHandler()
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
-    print(client.guilds)
 
 @client.event
 async def on_message(message):
@@ -46,24 +45,27 @@ async def on_message(message):
         c_handler = d_handler.canvas_handlers[d_handler.guilds.index(message.guild)]
         c_handler.track_course(message.content.split(" ")[2:], message.channel)
 
-        course_names = []
-        if c_handler.mode == "guild":
-            for c in c_handler.courses:
-                course_names.append(c.name)
-        elif c_handler.mode == "channels":
-            for channel_courses in c_handler.channels_courses:
-                if channel_courses[0] == message.channel:
-                    for c in channel_courses[1]:
-                        course_names.append(c.name)
+        course_names_str = c_handler.get_course_names(message.channel)
 
-        await message.channel.send("Tracking: " + ", ".join(course_names))
+        await message.channel.send("Tracking: " + course_names_str)
     
     if message.content.startswith('!cd untrack'):
-        pass
+        c_handler = d_handler.canvas_handlers[d_handler.guilds.index(message.guild)]
+        c_handler.untrack_course(message.content.split(" ")[2:], message.channel)
+
+        course_names_str = c_handler.get_course_names(message.channel)
+
+        await message.channel.send("Tracking: " + course_names_str)
 
     if message.content.startswith('!cd ass'):
+        if len(message.content.split(" ")[2:]) == 0:
+            course_ids = None
+        else:
+            course_ids = message.content.split(" ")[2:]
+
         c_handler = d_handler.canvas_handlers[d_handler.guilds.index(message.guild)]
-        for data in c_handler.get_assignments(message.channel):
+
+        for data in c_handler.get_assignments(course_ids, message.channel):
             embed_var=discord.Embed(title=data[0], url=data[1], description=data[2], color=CANVAS_COLOR)
             embed_var.set_thumbnail(url=CANVAS_THUMBNAIL_URL)
             embed_var.add_field(name="Created at", value=data[3], inline=True)
