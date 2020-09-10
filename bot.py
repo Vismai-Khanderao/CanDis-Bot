@@ -22,6 +22,8 @@ DISCORD_KEY = os.getenv('DISCORD_KEY')
 d_handler = DiscordHandler()
 
 # TODO: make live assignment reminder/new announcement feature
+# TODO: store information to resume after stopping
+# TODO: use above method to remove guilds without courses
 # TODO: order assignments by date?
 # TODO: add dm notification option using reaction
 # TODO: make unlive
@@ -42,11 +44,9 @@ async def on_message(message):
 
 @bot.command()
 async def track(ctx, *course_ids):
-    if ctx.message.guild not in d_handler.guilds:
-        d_handler.guilds.append(ctx.message.guild)
-        d_handler.canvas_handlers.append(CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, ctx.message.guild))
+    _add_guild(ctx.message.guild)
     
-    c_handler = d_handler.canvas_handlers[d_handler.guilds.index(ctx.message.guild)]
+    c_handler = _get_canvas_handler(ctx.message.guild)
     c_handler.track_course(course_ids, ctx.channel)
 
     course_names_str = c_handler.get_course_names(ctx.message.channel)
@@ -55,7 +55,7 @@ async def track(ctx, *course_ids):
 
 @bot.command()
 async def untrack(ctx, *course_ids):
-    c_handler = d_handler.canvas_handlers[d_handler.guilds.index(ctx.message.guild)]
+    c_handler = _get_canvas_handler(ctx.message.guild)
     c_handler.untrack_course(course_ids, ctx.message.channel)
 
     course_names_str = c_handler.get_course_names(ctx.message.channel)
@@ -64,7 +64,7 @@ async def untrack(ctx, *course_ids):
 
 @bot.command()
 async def ass(ctx, *args):
-    c_handler = d_handler.canvas_handlers[d_handler.guilds.index(ctx.message.guild)]
+    c_handler = _get_canvas_handler(ctx.message.guild)
 
     if args and args[0].startswith('-till'):
         till = args[1]
@@ -82,27 +82,36 @@ async def ass(ctx, *args):
 
 @bot.command()
 async def live(ctx):
-    c_handler = d_handler.canvas_handlers[d_handler.guilds.index(ctx.message.guild)]
+    c_handler = _get_canvas_handler(ctx.message.guild)
     c_handler.live_channels.append(ctx.message.channel)
 
 @bot.command()
 async def mode(ctx, mode):
-    if ctx.message.guild not in d_handler.guilds:
-        d_handler.guilds.append(ctx.message.guild)
-        d_handler.canvas_handlers.append(CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, ctx.message.guild))
+    _add_guild(ctx.message.guild)
 
-    c_handler = d_handler.canvas_handlers[d_handler.guilds.index(ctx.message.guild)]
+    c_handler = _get_canvas_handler(ctx.message.guild)
     c_handler.mode = mode
 
 def _remove_empty_strings(ids):
     return [i for i in ids if i != '']
 
+def _add_guild(guild):
+    if guild not in d_handler.guilds:
+        d_handler.guilds.append(guild)
+        d_handler.canvas_handlers.append([guild, CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, guild)])
+    
+
+def _get_canvas_handler(guild):
+    for guild_canvas_handler in d_handler.canvas_handlers:
+        if guild_canvas_handler[0] == guild:
+            return guild_canvas_handler[1]
+
 async def live_tracking():
     # WIP
     while True:
         for ch in d_handler.canvas_handlers:
-            if len(ch.live_channels) > 0:
-                for channel in ch.live_channels:
+            if len(ch[1].live_channels) > 0:
+                for channel in ch[1].live_channels:
                     await channel.send("Update")
         await asyncio.sleep(10)
 

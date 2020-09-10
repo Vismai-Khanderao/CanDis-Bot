@@ -77,13 +77,15 @@ class CanvasHandler(Canvas):
             course_to_track = self.get_course(i)
 
             if self.mode == "guild":
-                if course_to_track not in self.courses:
+                c_ids = [c.id for c in self.courses]
+                if course_to_track.id not in c_ids:
                     self.courses.append(course_to_track)
 
             elif self.mode == "channels":
                 for channel_courses in self.channels_courses:
                     if msg_channel == channel_courses[0]:
-                        if course_to_track not in channel_courses[1]:
+                        c_ids = [c.id for c in channel_courses[1]]
+                        if course_to_track.id not in c_ids:
                             channel_courses[1].append(course_to_track)
                         
     def untrack_course(self, course_ids, msg_channel):
