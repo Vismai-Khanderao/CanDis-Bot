@@ -3,6 +3,7 @@ from canvasapi.course import Course
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import dateutil.parser.isoparser
+import pytz
 
 class CanvasHandler(Canvas):
 
@@ -107,34 +108,34 @@ class CanvasHandler(Canvas):
                                 self.channels_courses.remove(channel_courses)
                         
 
-    def get_assignments(self, course_ids, msg_channel):
-        # TODO: reduce duplication here
+    def get_assignments(self, till, course_ids, msg_channel):
         courses_assignments = []
-        if not course_ids:
-            if self.mode == "guild":
-                for c in self.courses:
-                    courses_assignments.append([c.name, c.get_assignments()])
-            elif self.mode == "channels":
-                for channel_courses in self.channels_courses:
-                    if msg_channel == channel_courses[0]:
-                        for c in channel_courses[1]:
-                            courses_assignments.append([c.name, c.get_assignments()])
-        else:
+        if course_ids:
             course_ids = self._ids_converter(course_ids)
-            if self.mode == "guild":
-                for c in self.courses:
+
+        if self.mode == "guild":
+            for c in self.courses:
+                if course_ids:
                     if c.id in course_ids:
                         courses_assignments.append([c.name, c.get_assignments()])
-            elif self.mode == "channels":
-                for channel_courses in self.channels_courses:
-                    if msg_channel == channel_courses[0]:
-                        for c in channel_courses[1]:
+                else: 
+                    courses_assignments.append([c.name, c.get_assignments()])
+        elif self.mode == "channels":
+            for channel_courses in self.channels_courses:
+                if msg_channel == channel_courses[0]:
+                    for c in channel_courses[1]:
+                        if course_ids:
                             if c.id in course_ids:
                                 courses_assignments.append([c.name, c.get_assignments()])
-        
-        return self._get_assignment_data(courses_assignments)
+                        else:
+                            courses_assignments.append([c.name, c.get_assignments()])
 
-    def _get_assignment_data(self, courses_assignments):
+        return self._get_assignment_data(till, courses_assignments)
+
+    def _get_assignment_data(self, till, courses_assignments):
+        if till is not None:
+            till_timedelta = self._make_timedelta(till)
+    
         data_list = []
         for course_assignments in courses_assignments:
             course_name = course_assignments[0]
@@ -161,11 +162,32 @@ class CanvasHandler(Canvas):
                 if dtime_iso is None:
                     dtime_text = "No info"
                 else:
-                    dtime_text = (dateutil.parser.isoparse(dtime_iso)+time_shift).strftime("%Y-%m-%d %H:%M:%S")
+                    dtime_iso_parsed = (dateutil.parser.isoparse(dtime_iso)+time_shift)
+                    if till is not None:
+                        dtime_timedelta = dtime_iso_parsed - (datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(hours=7))
+                        if dtime_timedelta > till_timedelta:
+                            continue
+                    dtime_text = dtime_iso_parsed.strftime("%Y-%m-%d %H:%M:%S")
                                 
                 data_list.append([title, url, short_desc, ctime_text, dtime_text])
 
         return data_list
+    
+    def _make_timedelta(self, till):
+        till = till.split('-')
+        if till[1] in ["hour", "day", "week", "month", "year"]:
+            num = float(till[0])
+            options = {"hour"  : timedelta(hours=num),
+                       "day"   : timedelta(days=num),
+                       "week"  : timedelta(weeks=num),
+                       "month" : timedelta(days=30*num),
+                       "year"  : timedelta(days=365*num)}
+            return options[till[1]]
+        else:
+            year = int(till[0])
+            month = int(till[1])
+            day = int(till[2])
+            return datetime(year, month, day) - (datetime.utcnow() - timedelta(hours=7))
 
     def get_course_names(self, msg_channel):
         course_names = []

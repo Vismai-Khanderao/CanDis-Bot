@@ -22,15 +22,16 @@ DISCORD_KEY = os.getenv('DISCORD_KEY')
 d_handler = DiscordHandler()
 
 # TODO: make live assignment reminder/new announcement feature
-# TODO: make send assignments due in n time from now
+# TODO: order assignments by date?
 # TODO: add dm notification option using reaction
 # TODO: make unlive
-# TODO: add options for aliases for courses (1)
+# TODO: add options for aliases for courses
 # TODO: make documentation
 
 @bot.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(bot))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="I, Robot"))
 
 @bot.event
 async def on_message(message):
@@ -62,10 +63,17 @@ async def untrack(ctx, *course_ids):
     await ctx.send("Tracking: " + course_names_str)
 
 @bot.command()
-async def ass(ctx, *course_ids):
+async def ass(ctx, *args):
     c_handler = d_handler.canvas_handlers[d_handler.guilds.index(ctx.message.guild)]
 
-    for data in c_handler.get_assignments(course_ids, ctx.message.channel):
+    if args and args[0].startswith('-till'):
+        till = args[1]
+        course_ids = args[2:]
+    else:
+        till = None
+        course_ids = args
+    
+    for data in c_handler.get_assignments(till, course_ids, ctx.message.channel):
         embed_var=discord.Embed(title=data[0], url=data[1], description=data[2], color=CANVAS_COLOR)
         embed_var.set_thumbnail(url=CANVAS_THUMBNAIL_URL)
         embed_var.add_field(name="Created at", value=data[3], inline=True)
@@ -88,7 +96,6 @@ async def mode(ctx, mode):
 
 def _remove_empty_strings(ids):
     return [i for i in ids if i != '']
-    
 
 async def live_tracking():
     # WIP
