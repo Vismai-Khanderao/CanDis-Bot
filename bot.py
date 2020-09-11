@@ -42,7 +42,12 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+@bot.event
+async def on_command_error(ctx, error):
+    await ctx.send("```" + str(error) + "```")
+
 @bot.command()
+@commands.guild_only()
 async def track(ctx, *course_ids):
     _add_guild(ctx.message.guild)
     
@@ -54,6 +59,7 @@ async def track(ctx, *course_ids):
     await ctx.send("Tracking: " + course_names_str)
 
 @bot.command()
+@commands.guild_only()
 async def untrack(ctx, *course_ids):
     c_handler = _get_canvas_handler(ctx.message.guild)
     c_handler.untrack_course(course_ids, ctx.message.channel)
@@ -63,6 +69,7 @@ async def untrack(ctx, *course_ids):
     await ctx.send("Tracking: " + course_names_str)
 
 @bot.command()
+@commands.guild_only()
 async def ass(ctx, *args):
     c_handler = _get_canvas_handler(ctx.message.guild)
 
@@ -81,16 +88,30 @@ async def ass(ctx, *args):
         await ctx.send(embed=embed_var)
 
 @bot.command()
+@commands.guild_only()
 async def live(ctx):
     c_handler = _get_canvas_handler(ctx.message.guild)
     c_handler.live_channels.append(ctx.message.channel)
 
 @bot.command()
+@commands.guild_only()
 async def mode(ctx, mode):
     _add_guild(ctx.message.guild)
 
     c_handler = _get_canvas_handler(ctx.message.guild)
     c_handler.mode = mode
+
+@bot.command()
+async def stream(ctx, arg):
+    c_handler = _get_canvas_handler(ctx.message.guild)
+    for item in c_handler.get_course_stream_ch(arg, CANVAS_API_URL, CANVAS_API_KEY):
+        await ctx.send(item)
+        await ctx.send("next item below")
+
+@bot.command()
+async def stream_sum(ctx, arg):
+    c_handler = _get_canvas_handler(ctx.message.guild)
+    await ctx.send(c_handler.get_course_stream_summary_ch(arg, CANVAS_API_URL, CANVAS_API_KEY))
 
 def _remove_empty_strings(ids):
     return [i for i in ids if i != '']

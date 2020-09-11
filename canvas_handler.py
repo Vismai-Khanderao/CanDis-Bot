@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import dateutil.parser.isoparser
 import pytz
+from extra_func import get_course_stream, get_course_stream_summary
 
 class CanvasHandler(Canvas):
 
@@ -59,10 +60,10 @@ class CanvasHandler(Canvas):
         for i in ids:
             temp.append(int(i))
         return temp
-        
+           
     def track_course(self, course_ids, msg_channel):
         course_ids = self._ids_converter(course_ids)
-                
+
         if self.mode == "channels":
             if self.channels_courses is None:
                 self.channels_courses = [[msg_channel, []]]
@@ -109,6 +110,19 @@ class CanvasHandler(Canvas):
                             if len(channel_courses[1]) == 0:
                                 self.channels_courses.remove(channel_courses)
                         
+    def get_course_stream_ch(self, course_id, base_url, access_token):
+        data_list = []
+        course_stream = get_course_stream(course_id, base_url, access_token)
+        for item in course_stream:
+            # TODO: check for more types
+            if item["type"] == 'Conversation':
+                desc = item["latest_messages"][0]["message"]
+                short_desc = "\n".join(desc.split("\n")[:4])
+                data_list.append(short_desc)
+        return data_list
+    
+    def get_course_stream_summary_ch(self, course_id, base_url, access_token):
+        return get_course_stream_summary(course_id, base_url, access_token)
 
     def get_assignments(self, till, course_ids, msg_channel):
         courses_assignments = []
@@ -174,7 +188,7 @@ class CanvasHandler(Canvas):
                 data_list.append([title, url, short_desc, ctime_text, dtime_text])
 
         return data_list
-    
+
     def _make_timedelta(self, till):
         till = till.split('-')
         if till[1] in ["hour", "day", "week", "month", "year"]:
