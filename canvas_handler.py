@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import dateutil.parser.isoparser
 import pytz
-from extra_func import get_course_stream, get_course_stream_summary
+from extra_func import get_course_stream, get_course_stream_summary, get_course_url
 
 class CanvasHandler(Canvas):
 
@@ -74,57 +74,85 @@ class CanvasHandler(Canvas):
                     self.channels_courses.append([msg_channel, []])
 
 
-        for i in course_ids:
-            course_to_track = self.get_course(i)
-
-            if self.mode == "guild":
+        if self.mode == "guild":
+            for i in course_ids:
                 c_ids = [c.id for c in self.courses]
-                if course_to_track.id not in c_ids:
-                    self.courses.append(course_to_track)
+                if i not in c_ids:
+                    self.courses.append(self.get_course(i))
 
-            elif self.mode == "channels":
+        elif self.mode == "channels":
+            for i in course_ids:
                 for channel_courses in self.channels_courses:
                     if msg_channel == channel_courses[0]:
                         c_ids = [c.id for c in channel_courses[1]]
-                        if course_to_track.id not in c_ids:
-                            channel_courses[1].append(course_to_track)
+                        if i not in c_ids:
+                            channel_courses[1].append(self.get_course(i))
                         
     def untrack_course(self, course_ids, msg_channel):
         course_ids = self._ids_converter(course_ids)
 
         if self.mode == "guild":
             for i in course_ids:
-                course_to_untrack = self.get_course(i)
                 c_ids = [c.id for c in self.courses]
-                if course_to_untrack.id in c_ids:
-                    del self.courses[c_ids.index(course_to_untrack.id)]
+                if i in c_ids:
+                    del self.courses[c_ids.index(i)]
         
         elif self.mode == "channels":
-            for channel_courses in self.channels_courses:
-                if msg_channel == channel_courses[0]:
-                    for i in course_ids:
-                        course_to_untrack = self.get_course(i)
+            for i in course_ids:
+                for channel_courses in self.channels_courses:
+                    if msg_channel == channel_courses[0]:
                         c_ids = [c.id for c in channel_courses[1]]
-                        if course_to_untrack.id in c_ids:
-                            del channel_courses[1][c_ids.index(course_to_untrack.id)]
+                        if i in c_ids:
+                            del channel_courses[1][c_ids.index(i)]
                             if len(channel_courses[1]) == 0:
                                 self.channels_courses.remove(channel_courses)
                         
-    def get_course_stream_ch(self, course_id, base_url, access_token):
+    def get_course_stream_ch(self, course_ids, msg_channel, base_url, access_token):
+        course_ids = self._ids_converter(course_ids)
+        
+        course_stream_list = []
+        if self.mode == "guild":
+            for i in course_ids:
+                if i in [c.id for c in self.courses]:
+                    course_stream_list.append(get_course_stream(i, base_url, access_token))
+        elif self.mode == "channels":
+            for i in course_ids:
+                for channel_courses in self.channels_courses:
+                    if msg_channel == channel_courses[0]:
+                        if i in [c.id for c in channel_courses[1]]:
+                            course_stream_list.append(get_course_stream(i, base_url, access_token))
+
         data_list = []
-        course_stream = get_course_stream(course_id, base_url, access_token)
-        for item in course_stream:
-            # TODO: check for more types
-            if item["type"] == 'Conversation':
-                desc = item["latest_messages"][0]["message"]
-                short_desc = "\n".join(desc.split("\n")[:4])
-                data_list.append(short_desc)
+        for course_stream in course_stream_list:
+            for item in course_stream:
+                # TODO: check for more types
+                if item['type'] in ['Conversation']:
+                    course = self.get_course(item['course_id'])
+
+                    course_name = course.name
+                    course_url = get_course_url(course.id, base_url)
+
+                    title = "Announcement: " + item['title']
+
+                    url = item['html_url']
+
+                    desc = item['latest_messages'][0]['message']
+                    short_desc = "\n".join(desc.split("\n")[:4])
+
+                    ctime_iso = item['created_at']
+                    time_shift = timedelta(hours=4) #DST Pacific
+                    if ctime_iso is None:
+                        ctime_text = "No info"
+                    else:
+                        ctime_text = (dateutil.parser.isoparse(ctime_iso)+time_shift).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    data_list.append([course_name, course_url, title, url, short_desc, ctime_text])
         return data_list
     
     def get_course_stream_summary_ch(self, course_id, base_url, access_token):
         return get_course_stream_summary(course_id, base_url, access_token)
 
-    def get_assignments(self, till, course_ids, msg_channel):
+    def get_assignments(self, till, course_ids, msg_channel, base_url):
         courses_assignments = []
         if course_ids:
             course_ids = self._ids_converter(course_ids)
@@ -133,32 +161,35 @@ class CanvasHandler(Canvas):
             for c in self.courses:
                 if course_ids:
                     if c.id in course_ids:
-                        courses_assignments.append([c.name, c.get_assignments()])
+                        courses_assignments.append([c, c.get_assignments()])
                 else: 
-                    courses_assignments.append([c.name, c.get_assignments()])
+                    courses_assignments.append([c, c.get_assignments()])
         elif self.mode == "channels":
             for channel_courses in self.channels_courses:
                 if msg_channel == channel_courses[0]:
                     for c in channel_courses[1]:
                         if course_ids:
                             if c.id in course_ids:
-                                courses_assignments.append([c.name, c.get_assignments()])
+                                courses_assignments.append([c, c.get_assignments()])
                         else:
-                            courses_assignments.append([c.name, c.get_assignments()])
+                            courses_assignments.append([c, c.get_assignments()])
 
-        return self._get_assignment_data(till, courses_assignments)
+        return self._get_assignment_data(till, courses_assignments, base_url)
 
-    def _get_assignment_data(self, till, courses_assignments):
+    def _get_assignment_data(self, till, courses_assignments, base_url):
         if till is not None:
             till_timedelta = self._make_timedelta(till)
     
         data_list = []
         for course_assignments in courses_assignments:
-            course_name = course_assignments[0]
+            course =  course_assignments[0]
+            course_name = course.name
 
             for assignment in course_assignments[1]:
-                title = course_name + "\n" + "Assignment: " + assignment.__getattribute__("name")
+                course_url = get_course_url(course.id, base_url)
 
+                title = "Assignment: " + assignment.__getattribute__("name")
+                
                 url = assignment.__getattribute__("html_url")
 
                 desc_html = assignment.__getattribute__("description")
@@ -185,7 +216,7 @@ class CanvasHandler(Canvas):
                             continue
                     dtime_text = dtime_iso_parsed.strftime("%Y-%m-%d %H:%M:%S")
                                 
-                data_list.append([title, url, short_desc, ctime_text, dtime_text])
+                data_list.append([course_name, course_url, title, url, short_desc, ctime_text, dtime_text])
 
         return data_list
 
@@ -205,17 +236,16 @@ class CanvasHandler(Canvas):
             day = int(till[2])
             return datetime(year, month, day) - (datetime.utcnow() - timedelta(hours=7))
 
-    def get_course_names(self, msg_channel):
+    def get_course_names(self, msg_channel, url):
         course_names = []
         if self.mode == "guild":
             for c in self.courses:
-                course_names.append(c.name)
+                course_names.append([c.name, get_course_url(c.id, url)])
         elif self.mode == "channels":
             for channel_courses in self.channels_courses:
                 if channel_courses[0] == msg_channel:
                     for c in channel_courses[1]:
-                        course_names.append(c.name)
-        
-        return ", ".join(course_names)
+                        course_names.append([c.name, get_course_url(c.id, url)])
+        return course_names
 
 

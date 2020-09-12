@@ -22,3 +22,7 @@ def get_course_stream_summary(course_id, base_url, access_token, **kwargs):
         _kwargs=combine_kwargs(**kwargs)
         )
     return response.json()
+
+def get_course_url(course_id, base_url):
+    base_url = get_institution_url(base_url)
+    return "{}/courses/{}".format(base_url, course_id)
