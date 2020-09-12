@@ -9,7 +9,7 @@ Me neither, but here we are.
 - Retrieve linked assignments and announcements
 - Be notified about new announcements/assignments and assignment due dates
 
-# Currently being implemented:
+## Currently being implemented:
 - Live notifications, see point below
 - Retrieve announcements from course. Every Professor seems to send out announcements using different methods ._. The function is currently working for some courses, once I believe most methods are covered, I will add the commands to the README as fully functional.
 
