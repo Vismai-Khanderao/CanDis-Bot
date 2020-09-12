@@ -21,10 +21,10 @@ DISCORD_KEY = os.getenv('DISCORD_KEY')
 
 d_handler = DiscordHandler()
 
-# TODO: make live assignment reminder/new announcement feature
+# TODO: make live assignment reminder/new announcement feature, using course_stream and check announcememts
+# TODO: reduce duplication in track_course, untrack_course, get_course_stream by passing func to helper
 # TODO: store information to resume after stopping
-# TODO: use above method to remove guilds without courses
-# TODO: order assignments by date?
+# TODO: use method to remove guilds without courses, and for invalid track and mode
 # TODO: add dm notification option using reaction
 # TODO: make unlive
 # TODO: add options for aliases for courses

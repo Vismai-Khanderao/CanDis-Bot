@@ -65,6 +65,7 @@ class CanvasHandler(Canvas):
         course_ids = self._ids_converter(course_ids)
 
         if self.mode == "channels":
+            # TODO: remove this and always initialise self.channels_courses as []
             if self.channels_courses is None:
                 self.channels_courses = [[msg_channel, []]]
 
@@ -108,6 +109,7 @@ class CanvasHandler(Canvas):
                                 self.channels_courses.remove(channel_courses)
                         
     def get_course_stream_ch(self, course_ids, msg_channel, base_url, access_token):
+        # TODO: remove possible duplicate courses, i.e. !cd-stream 53540 53540
         course_ids = self._ids_converter(course_ids)
         
         course_stream_list = []
@@ -125,7 +127,7 @@ class CanvasHandler(Canvas):
         data_list = []
         for course_stream in course_stream_list:
             for item in course_stream:
-                # TODO: check for more types
+                # TODO: check for more types/only works for cs221
                 if item['type'] in ['Conversation']:
                     course = self.get_course(item['course_id'])
 
