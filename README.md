@@ -1,4 +1,4 @@
-# CanDis-Bot <img src="canvas_discord_logo.png" alt="drawing" width="50"/> 
+# <img src="canvas_discord_logo.png" alt="drawing" width="50"/> CanDis-Bot 
 Canvas Instructure integration for Discord bot.
 
 ## Ever wanted to lose a round because of a new assignment?
