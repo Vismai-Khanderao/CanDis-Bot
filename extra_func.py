@@ -1,11 +1,11 @@
 from canvasapi.requester import Requester
-from canvasapi.util import get_institution_url, combine_kwargs
+from canvasapi.util import combine_kwargs, get_institution_url
 
-def get_course_stream(course_id, base_url, access_token, **kwargs):
+def get_course_stream(course_id:int, base_url, access_token, **kwargs):
     """
     Parameters
     ----------
-    course_id : `str`
+    course_id : `int`
         Course id
 
     base_url : `str`
@@ -40,7 +40,7 @@ def get_course_stream_summary(course_id, base_url, access_token, **kwargs):
         )
     return response.json()
 
-def get_course_url(course_id, base_url):
+def get_course_url(course_id:str, base_url) -> str:
     """
     Parameters
     ----------

@@ -1,31 +1,39 @@
+from datetime import datetime, timedelta
+from typing import List, Tuple, Union, Optional
+
+import dateutil.parser.isoparser
+import discord
+import pytz
+from bs4 import BeautifulSoup
+from canvasapi.assignment import Assignment
 from canvasapi.canvas import Canvas
 from canvasapi.course import Course
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-import dateutil.parser.isoparser
-import pytz
-from extra_func import get_course_stream, get_course_stream_summary, get_course_url
+from canvasapi.paginated_list import PaginatedList
+
+from extra_func import (get_course_stream, get_course_stream_summary,
+                        get_course_url)
+
 
 class CanvasHandler(Canvas):
     """Represents a handler for Canvas information for a guild
 
     Attributes
     ----------
-    courses : `list of canvasapi.course.Course`
+    courses : `list of canvasapi.Course`
         Courses tracked in guild mode. Empty if mode is "channels"
 
-    guild : `discord.guild.Guild`
+    guild : `discord.Guild`
         Guild assigned to this handler.
 
     mode : `str`
         "guild" indicates courses tracked server-wide.
         "channels" indicates courses tracked channel-wide only.
 
-    channels_courses : `list of [discord.channel.Channel, list of canvasapi.course.Course]`
+    channels_courses : `List[discord.Channel, List[canvasapi.Course]]`
         Channels and the specific courses tracked for them. Empty if mode is "guild".
     """
 
-    def __init__(self, API_URL, API_KEY, guild):
+    def __init__(self, API_URL, API_KEY, guild:discord.Guild):
         """
         Parameters
         ----------
@@ -35,45 +43,45 @@ class CanvasHandler(Canvas):
         API_KEY : `str`
             API key to authenticate requests with
             
-        guild : `discord.guild.Guild`
+        guild : `discord.Guild`
             Guild to assign to this handler
         """
         super().__init__(API_URL, API_KEY)
-        self._courses = []
+        self._courses : List[Course] = []
         self._guild = guild
         self._mode = "guild"
-        self._channels_courses = None # [[channel, [courses]]]
-        self._live_channels = []
+        self._channels_courses : List[Union[discord.TextChannel, List[Course]]] = [] # [[channel, [courses]]]
+        self._live_channels : List[discord.TextChannel] = []
     
     @property
-    def courses(self):
+    def courses(self) -> List[Course]:
         return self._courses
 
     @courses.setter
-    def courses(self, courses):
+    def courses(self, courses:List[Course]):
         self._courses = courses
 
     @property
-    def guild(self):
+    def guild(self) -> discord.Guild:
         return self._guild
     
     @property
-    def mode(self):
+    def mode(self) -> str:
         return self._mode
     
     @mode.setter
-    def mode(self, mode):
+    def mode(self, mode:str):
         self._mode = mode
         self.courses = []
-        self.channels_courses = None
+        self.channels_courses = []
         self.live_channels = []
     
     @property
-    def channels_courses(self):
+    def channels_courses(self) -> List[Union[discord.TextChannel, List[Course]]]:
         return self._channels_courses
     
     @channels_courses.setter
-    def channels_courses(self, channels_courses):
+    def channels_courses(self, channels_courses:List[Union[discord.TextChannel, List[Course]]]):
         self._channels_courses = channels_courses
     
     @property
@@ -84,17 +92,17 @@ class CanvasHandler(Canvas):
     def live_channels(self, live_channels):
         self._live_channels = live_channels
         
-    def _ids_converter(self, ids):
+    def _ids_converter(self, ids:Tuple[str, ...]) -> List[int]:
         """Converts list of string to list of int
 
         Parameters
         ----------
-        ids : `list of str`
-            List of string ids
+        ids : `Tuple[str, ...]`
+            Tuple of string ids
 
         Returns
         -------
-        `list of int`
+        `List[int]`
             List of int ids
         """
         temp = []
@@ -102,23 +110,22 @@ class CanvasHandler(Canvas):
             temp.append(int(i))
         return temp
            
-    def track_course(self, course_ids, msg_channel):
+    def track_course(self, course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel):
         """Adds course(s) to track
 
         Parameters
         ----------
-        course_ids : `list of str`
-            List of course ids
+        course_ids_str : `Tuple[str, ...]`
+            Tuple of course ids
 
-        msg_channel : `discord.channel.Channel`
+        msg_channel : `discord.TextChannel`
             Channel the command came from, used only if mode is "channels".
         """
-        course_ids = self._ids_converter(course_ids)
+        course_ids = self._ids_converter(course_ids_str)
 
         if self.mode == "channels":
-            # TODO: remove this and always initialise self.channels_courses as []
-            if self.channels_courses is None:
-                self.channels_courses = [[msg_channel, []]]
+            if not self.channels_courses:
+                self.channels_courses.append([[msg_channel, []]])
 
             else:
                 channels = [channel_courses[0] for channel_courses in self.channels_courses]
@@ -140,18 +147,18 @@ class CanvasHandler(Canvas):
                         if i not in c_ids:
                             channel_courses[1].append(self.get_course(i))
                         
-    def untrack_course(self, course_ids, msg_channel):
+    def untrack_course(self, course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel):
         """Untracks course(s)
 
         Parameters
         ----------
-        course_ids : `list of str`
-            List of course ids
+        course_ids_str : `Tuple[str, ...]`
+            Tuple of course ids
 
-        msg_channel : `discord.channel.Channel`
+        msg_channel : `discord.TextChannel`
             Channel the command came from, used only if mode is "channels".
         """
-        course_ids = self._ids_converter(course_ids)
+        course_ids = self._ids_converter(course_ids_str)
 
         if self.mode == "guild":
             for i in course_ids:
@@ -169,16 +176,16 @@ class CanvasHandler(Canvas):
                             if len(channel_courses[1]) == 0:
                                 self.channels_courses.remove(channel_courses)
                         
-    def get_course_stream_ch(self, course_ids, msg_channel, base_url, access_token):
+    def get_course_stream_ch(self, course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel, base_url, access_token) -> List[List[str]]:
         # TODO: remove possible duplicate courses, i.e. !cd-stream 53540 53540
         """Gets announcements for course(s)
 
         Parameters
         ----------
-        course_ids : `list of str`
-            List of course ids
+        course_ids_str : `Tuple[str, ...]`
+            Tuple of course ids
 
-        msg_channel : `discord.channel.Channel`
+        msg_channel : `discord.TextChannel`
             Channel the command came from, used only if mode is "channels"
 
         base_url : `str`
@@ -189,10 +196,10 @@ class CanvasHandler(Canvas):
 
         Returns
         -------
-        `list of [str, str, str, str, str, str]`
+        `List[List[str]]`
             List of announcement data to be formatted and sent as embeds
         """
-        course_ids = self._ids_converter(course_ids)
+        course_ids = self._ids_converter(course_ids_str)
         
         course_stream_list = []
         if self.mode == "guild":
@@ -236,18 +243,18 @@ class CanvasHandler(Canvas):
     def get_course_stream_summary_ch(self, course_id, base_url, access_token):
         return get_course_stream_summary(course_id, base_url, access_token)
 
-    def get_assignments(self, till, course_ids, msg_channel, base_url):
+    def get_assignments(self, till:Optional[str], course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel, base_url) -> List[List[str]]:
         """Gets assignments for course(s)
 
         Parameters
         ----------
-        till : `str`
+        till : `None or str`
             Date/Time from due date of assignments
 
-        course_ids : `list of str`
-            List of course ids
+        course_ids_str : `Tuple[str, ...]`
+            Tuple of course ids
 
-        msg_channel : `discord.channel.Channel`
+        msg_channel : `discord.TextChannel`
             Channel the command came from, used only if mode is "channels"
 
         base_url : `str`
@@ -255,12 +262,11 @@ class CanvasHandler(Canvas):
 
         Returns
         -------
-        `list of [str, str, str, str, str, str, str]`
+        `List[List[str]]`
             List of assignment data to be formatted and sent as embeds 
         """
-        courses_assignments = []
-        if course_ids:
-            course_ids = self._ids_converter(course_ids)
+        courses_assignments = []        
+        course_ids = self._ids_converter(course_ids_str)
 
         if self.mode == "guild":
             for c in self.courses:
@@ -281,15 +287,15 @@ class CanvasHandler(Canvas):
 
         return self._get_assignment_data(till, courses_assignments, base_url)
 
-    def _get_assignment_data(self, till, courses_assignments, base_url):
+    def _get_assignment_data(self, till:Optional[str], courses_assignments, base_url:str) -> List[List[str]]:
         """Formats all courses assignments as separate assignments"
 
         Parameters
         ----------
-        till : `str`
+        till : `None or str`
             Date/Time from due date of assignments
 
-        courses_assignments : `list of [canvasapi.course.Course, canvasapi.paginated_list.PaginatedList of canvasapi.assignment.Assignment`
+        courses_assignments : `List[canvasapi.Course, PaginatedList[canvasapi.Assignment]]`
             List of courses and their assignments
 
         base_url : `str`
@@ -297,7 +303,7 @@ class CanvasHandler(Canvas):
 
         Returns
         -------
-        `list of [str, str, str, str, str, str, str]`
+        `List[List[str]]`
             List of assignment data to be formatted and sent as embeds
         """
         if till is not None:
@@ -345,7 +351,7 @@ class CanvasHandler(Canvas):
 
         return data_list
 
-    def _make_timedelta(self, till):
+    def _make_timedelta(self, till_str:str) -> timedelta:
         """Makes a datetime.timedelta
 
         Parameters
@@ -358,7 +364,7 @@ class CanvasHandler(Canvas):
         `datetime.timedelta`
             Time delta between till and now
         """
-        till = till.split('-')
+        till = till_str.split('-')
         if till[1] in ["hour", "day", "week", "month", "year"]:
             num = float(till[0])
             options = {"hour"  : timedelta(hours=num),
@@ -373,12 +379,12 @@ class CanvasHandler(Canvas):
             day = int(till[2])
             return datetime(year, month, day) - (datetime.utcnow() - timedelta(hours=7))
 
-    def get_course_names(self, msg_channel, url):
+    def get_course_names(self, msg_channel:discord.TextChannel, url) -> List[List[str]]:
         """Gives a list of tracked courses and their urls
 
         Parameters
         ----------
-        msg_channel : `discord.channel.Channel`
+        msg_channel : `discord.TextChannel`
             Channel the command came from, used only if mode is "channels"
 
         base_url : `str`
@@ -386,7 +392,7 @@ class CanvasHandler(Canvas):
 
         Returns
         -------
-        `list of [str, str]`
+        `List[List[str]]`
             List of course names and their page urls
         """
         course_names = []

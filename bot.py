@@ -1,13 +1,18 @@
-import discord
 import asyncio
 import os
+import sys
+
 import dateutil.parser.isoparser
+import discord
+from bs4 import BeautifulSoup
+from canvasapi import Canvas
+from discord.ext import commands
+from dotenv import load_dotenv
+
 from canvas_handler import CanvasHandler
 from discord_handler import DiscordHandler
-from canvasapi import Canvas
-from bs4 import BeautifulSoup
-from dotenv import load_dotenv
-from discord.ext import commands
+
+from typing import Optional
 
 bot = commands.Bot(command_prefix='!cd-')
 
@@ -31,7 +36,7 @@ d_handler = DiscordHandler()
 # TODO: make documentation
 
 @bot.event
-async def on_ready():
+async def on_ready(): 
     print('We have logged in as {0.user}'.format(bot))
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="I, Robot"))
 
@@ -42,25 +47,31 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-@bot.event
-async def on_command_error(ctx, error):
-    await ctx.send("```" + str(error) + "```")
+# @bot.event
+# async def on_command_error(ctx:commands.Context, error:commands.CommandError):
+#     await ctx.send("```" + str(error) + "```")
 
 @bot.command()
 @commands.guild_only()
-async def track(ctx, *course_ids):
+async def track(ctx:commands.Context, *course_ids:str):
     _add_guild(ctx.message.guild)
     
     c_handler = _get_canvas_handler(ctx.message.guild)
-    c_handler.track_course(course_ids, ctx.channel)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
+
+    c_handler.track_course(course_ids, ctx.channel)   
 
     embed_var = _get_tracking_courses(c_handler, ctx.message.channel, CANVAS_API_URL)
     await ctx.send(embed=embed_var)
 
 @bot.command()
 @commands.guild_only()
-async def untrack(ctx, *course_ids):
+async def untrack(ctx:commands.Context, *course_ids:str):
     c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
+
     c_handler.untrack_course(course_ids, ctx.message.channel)
 
     embed_var = _get_tracking_courses(c_handler, ctx.message.channel, CANVAS_API_URL)
@@ -68,8 +79,10 @@ async def untrack(ctx, *course_ids):
 
 @bot.command()
 @commands.guild_only()
-async def ass(ctx, *args):
+async def ass(ctx:commands.Context, *args):
     c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
 
     if args and args[0].startswith('-till'):
         till = args[1]
@@ -92,16 +105,21 @@ async def ass(ctx, *args):
 
 @bot.command()
 @commands.guild_only()
-async def live(ctx):
+async def live(ctx:commands.Context):
     c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
     c_handler.live_channels.append(ctx.message.channel)
 
 @bot.command()
 @commands.guild_only()
-async def mode(ctx, mode):
+async def mode(ctx:commands.Context, mode:str):
     _add_guild(ctx.message.guild)
 
     c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
+
     if mode in ["guild", "channels"]:
         c_handler.mode = mode
         await ctx.send(mode)
@@ -110,8 +128,11 @@ async def mode(ctx, mode):
 
 @bot.command()
 @commands.guild_only()
-async def stream(ctx, *course_ids):
+async def stream(ctx:commands.Context, *course_ids:str):
     c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
+
     for data in c_handler.get_course_stream_ch(course_ids, ctx.message.channel, CANVAS_API_URL, CANVAS_API_KEY):
         embed_var=discord.Embed(title=data[2], url=data[3], description=data[4], color=CANVAS_COLOR)
         embed_var.set_author(name=data[0],url=data[1])
@@ -120,20 +141,24 @@ async def stream(ctx, *course_ids):
         await ctx.send(embed=embed_var)
 
 @bot.command()
-async def stream_sum(ctx, arg):
+async def stream_sum(ctx:commands.Context, arg:str):
     c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
+
     await ctx.send(c_handler.get_course_stream_summary_ch(arg, CANVAS_API_URL, CANVAS_API_KEY))
 
-def _add_guild(guild):
+def _add_guild(guild:discord.Guild):
     if guild not in [ch.guild for ch in d_handler.canvas_handlers]:
         d_handler.canvas_handlers.append(CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, guild))
 
-def _get_canvas_handler(guild):
+def _get_canvas_handler(guild:discord.Guild) -> Optional[CanvasHandler]:
     for ch in d_handler.canvas_handlers:
         if ch.guild == guild:
             return ch
+    return None
 
-def _get_tracking_courses(c_handler, channel, CANVAS_API_URL):
+def _get_tracking_courses(c_handler:CanvasHandler, channel:discord.TextChannel, CANVAS_API_URL) -> discord.Embed:
     course_names = c_handler.get_course_names(channel, CANVAS_API_URL)
     embed_var=discord.Embed(title="Tracking Courses:", color=CANVAS_COLOR)
     embed_var.set_thumbnail(url=CANVAS_THUMBNAIL_URL)
