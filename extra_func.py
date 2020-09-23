@@ -2,6 +2,23 @@ from canvasapi.requester import Requester
 from canvasapi.util import get_institution_url, combine_kwargs
 
 def get_course_stream(course_id, base_url, access_token, **kwargs):
+    """
+    Parameters
+    ----------
+    course_id : `str`
+        Course id
+
+    base_url : `str`
+        Base URL of the Canvas instance's API
+    
+    access_token : `str`
+        API key to authenticate requests with
+
+    Returns
+    -------
+    `dict`
+        JSON response for course activity stream
+    """
     access_token = access_token.strip()
     base_url = get_institution_url(base_url)
     requester = Requester(base_url, access_token)
@@ -24,5 +41,19 @@ def get_course_stream_summary(course_id, base_url, access_token, **kwargs):
     return response.json()
 
 def get_course_url(course_id, base_url):
+    """
+    Parameters
+    ----------
+    course_id : `str`
+        Course id
+
+    base_url : `str`
+        Base URL of the Canvas instance's API
+
+    Returns
+    -------
+    `str`
+        URL of course page
+    """
     base_url = get_institution_url(base_url)
     return "{}/courses/{}".format(base_url, course_id)

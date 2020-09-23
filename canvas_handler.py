@@ -7,8 +7,37 @@ import pytz
 from extra_func import get_course_stream, get_course_stream_summary, get_course_url
 
 class CanvasHandler(Canvas):
+    """Represents a handler for Canvas information for a guild
+
+    Attributes
+    ----------
+    courses : `list of canvasapi.course.Course`
+        Courses tracked in guild mode. Empty if mode is "channels"
+
+    guild : `discord.guild.Guild`
+        Guild assigned to this handler.
+
+    mode : `str`
+        "guild" indicates courses tracked server-wide.
+        "channels" indicates courses tracked channel-wide only.
+
+    channels_courses : `list of [discord.channel.Channel, list of canvasapi.course.Course]`
+        Channels and the specific courses tracked for them. Empty if mode is "guild".
+    """
 
     def __init__(self, API_URL, API_KEY, guild):
+        """
+        Parameters
+        ----------
+        API_URL : `str`
+            Base URL of the Canvas instance's API
+
+        API_KEY : `str`
+            API key to authenticate requests with
+            
+        guild : `discord.guild.Guild`
+            Guild to assign to this handler
+        """
         super().__init__(API_URL, API_KEY)
         self._courses = []
         self._guild = guild
@@ -56,12 +85,34 @@ class CanvasHandler(Canvas):
         self._live_channels = live_channels
         
     def _ids_converter(self, ids):
+        """Converts list of string to list of int
+
+        Parameters
+        ----------
+        ids : `list of str`
+            List of string ids
+
+        Returns
+        -------
+        `list of int`
+            List of int ids
+        """
         temp = []
         for i in ids:
             temp.append(int(i))
         return temp
            
     def track_course(self, course_ids, msg_channel):
+        """Adds course(s) to track
+
+        Parameters
+        ----------
+        course_ids : `list of str`
+            List of course ids
+
+        msg_channel : `discord.channel.Channel`
+            Channel the command came from, used only if mode is "channels".
+        """
         course_ids = self._ids_converter(course_ids)
 
         if self.mode == "channels":
@@ -90,6 +141,16 @@ class CanvasHandler(Canvas):
                             channel_courses[1].append(self.get_course(i))
                         
     def untrack_course(self, course_ids, msg_channel):
+        """Untracks course(s)
+
+        Parameters
+        ----------
+        course_ids : `list of str`
+            List of course ids
+
+        msg_channel : `discord.channel.Channel`
+            Channel the command came from, used only if mode is "channels".
+        """
         course_ids = self._ids_converter(course_ids)
 
         if self.mode == "guild":
@@ -110,6 +171,27 @@ class CanvasHandler(Canvas):
                         
     def get_course_stream_ch(self, course_ids, msg_channel, base_url, access_token):
         # TODO: remove possible duplicate courses, i.e. !cd-stream 53540 53540
+        """Gets announcements for course(s)
+
+        Parameters
+        ----------
+        course_ids : `list of str`
+            List of course ids
+
+        msg_channel : `discord.channel.Channel`
+            Channel the command came from, used only if mode is "channels"
+
+        base_url : `str`
+            Base URL of the Canvas instance's API
+
+        access_token : `str`
+            API key to authenticate requests with
+
+        Returns
+        -------
+        `list of [str, str, str, str, str, str]`
+            List of announcement data to be formatted and sent as embeds
+        """
         course_ids = self._ids_converter(course_ids)
         
         course_stream_list = []
@@ -142,7 +224,7 @@ class CanvasHandler(Canvas):
                     short_desc = "\n".join(desc.split("\n")[:4])
 
                     ctime_iso = item['created_at']
-                    time_shift = timedelta(hours=4) #DST Pacific
+                    time_shift = timedelta(hours=-7) #DST Pacific
                     if ctime_iso is None:
                         ctime_text = "No info"
                     else:
@@ -155,6 +237,27 @@ class CanvasHandler(Canvas):
         return get_course_stream_summary(course_id, base_url, access_token)
 
     def get_assignments(self, till, course_ids, msg_channel, base_url):
+        """Gets assignments for course(s)
+
+        Parameters
+        ----------
+        till : `str`
+            Date/Time from due date of assignments
+
+        course_ids : `list of str`
+            List of course ids
+
+        msg_channel : `discord.channel.Channel`
+            Channel the command came from, used only if mode is "channels"
+
+        base_url : `str`
+            Base URL of the Canvas instance's API
+
+        Returns
+        -------
+        `list of [str, str, str, str, str, str, str]`
+            List of assignment data to be formatted and sent as embeds 
+        """
         courses_assignments = []
         if course_ids:
             course_ids = self._ids_converter(course_ids)
@@ -179,6 +282,24 @@ class CanvasHandler(Canvas):
         return self._get_assignment_data(till, courses_assignments, base_url)
 
     def _get_assignment_data(self, till, courses_assignments, base_url):
+        """Formats all courses assignments as separate assignments"
+
+        Parameters
+        ----------
+        till : `str`
+            Date/Time from due date of assignments
+
+        courses_assignments : `list of [canvasapi.course.Course, canvasapi.paginated_list.PaginatedList of canvasapi.assignment.Assignment`
+            List of courses and their assignments
+
+        base_url : `str`
+            Base URL of the Canvas instance's API
+
+        Returns
+        -------
+        `list of [str, str, str, str, str, str, str]`
+            List of assignment data to be formatted and sent as embeds
+        """
         if till is not None:
             till_timedelta = self._make_timedelta(till)
     
@@ -203,7 +324,7 @@ class CanvasHandler(Canvas):
                 ctime_iso = assignment.__getattribute__("created_at")
                 dtime_iso = assignment.__getattribute__("due_at")
 
-                time_shift = timedelta(hours=4) #DST Pacific
+                time_shift = timedelta(hours=-7) #DST Pacific
                 if ctime_iso is None:
                     ctime_text = "No info"
                 else:
@@ -212,8 +333,10 @@ class CanvasHandler(Canvas):
                     dtime_text = "No info"
                 else:
                     dtime_iso_parsed = (dateutil.parser.isoparse(dtime_iso)+time_shift)
+                    dtime_timedelta = dtime_iso_parsed - (datetime.utcnow().replace(tzinfo=pytz.utc)+time_shift)
+                    if dtime_timedelta < timedelta(0):
+                        continue
                     if till is not None:
-                        dtime_timedelta = dtime_iso_parsed - (datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(hours=7))
                         if dtime_timedelta > till_timedelta:
                             continue
                     dtime_text = dtime_iso_parsed.strftime("%Y-%m-%d %H:%M:%S")
@@ -223,6 +346,18 @@ class CanvasHandler(Canvas):
         return data_list
 
     def _make_timedelta(self, till):
+        """Makes a datetime.timedelta
+
+        Parameters
+        ----------
+        till : `str`
+            Date/Time from due date of assignments
+
+        Returns
+        -------
+        `datetime.timedelta`
+            Time delta between till and now
+        """
         till = till.split('-')
         if till[1] in ["hour", "day", "week", "month", "year"]:
             num = float(till[0])
@@ -239,6 +374,21 @@ class CanvasHandler(Canvas):
             return datetime(year, month, day) - (datetime.utcnow() - timedelta(hours=7))
 
     def get_course_names(self, msg_channel, url):
+        """Gives a list of tracked courses and their urls
+
+        Parameters
+        ----------
+        msg_channel : `discord.channel.Channel`
+            Channel the command came from, used only if mode is "channels"
+
+        base_url : `str`
+            Base URL of the Canvas instance's API
+
+        Returns
+        -------
+        `list of [str, str]`
+            List of course names and their page urls
+        """
         course_names = []
         if self.mode == "guild":
             for c in self.courses:

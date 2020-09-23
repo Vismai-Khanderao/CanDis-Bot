@@ -109,6 +109,7 @@ async def mode(ctx, mode):
         await ctx.send("```Invalid mode```")
 
 @bot.command()
+@commands.guild_only()
 async def stream(ctx, *course_ids):
     c_handler = _get_canvas_handler(ctx.message.guild)
     for data in c_handler.get_course_stream_ch(course_ids, ctx.message.channel, CANVAS_API_URL, CANVAS_API_KEY):
@@ -124,14 +125,13 @@ async def stream_sum(ctx, arg):
     await ctx.send(c_handler.get_course_stream_summary_ch(arg, CANVAS_API_URL, CANVAS_API_KEY))
 
 def _add_guild(guild):
-    if guild not in d_handler.guilds:
-        d_handler.guilds.append(guild)
-        d_handler.canvas_handlers.append([guild, CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, guild)])
+    if guild not in [ch.guild for ch in d_handler.canvas_handlers]:
+        d_handler.canvas_handlers.append(CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, guild))
 
 def _get_canvas_handler(guild):
-    for guild_canvas_handler in d_handler.canvas_handlers:
-        if guild_canvas_handler[0] == guild:
-            return guild_canvas_handler[1]
+    for ch in d_handler.canvas_handlers:
+        if ch.guild == guild:
+            return ch
 
 def _get_tracking_courses(c_handler, channel, CANVAS_API_URL):
     course_names = c_handler.get_course_names(channel, CANVAS_API_URL)
@@ -145,8 +145,8 @@ async def live_tracking():
     # WIP
     while True:
         for ch in d_handler.canvas_handlers:
-            if len(ch[1].live_channels) > 0:
-                for channel in ch[1].live_channels:
+            if len(ch.live_channels) > 0:
+                for channel in ch.live_channels:
                     await channel.send("Update")
         await asyncio.sleep(10)
 

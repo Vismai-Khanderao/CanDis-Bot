@@ -1,8 +1,8 @@
 class DiscordHandler:
     # each guild has one canvas handler
     def __init__(self):
-        self._canvas_handlers = []   # [[guild, c_handler], ...]
-        self._guilds = []
+        # TODO: remove self._guilds and instead have [ch[0] for ch in self.canvas_handlers]
+        self._canvas_handlers = []   # [c_handler1, ... ]
 
     @property
     def canvas_handlers(self):
@@ -11,11 +11,3 @@ class DiscordHandler:
     @canvas_handlers.setter
     def canvas_handlers(self, canvas_handlers):
         self._canvas_handlers = canvas_handlers
-    
-    @property
-    def guilds(self):
-        return self._guilds
-    
-    @guilds.setter
-    def guilds(self, guilds):
-        self._guilds = guilds

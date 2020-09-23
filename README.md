@@ -14,6 +14,10 @@ Me neither, but here we are.
 - Retrieve announcements from course. Every Professor seems to send out announcements using different methods ._. The function is currently working for some courses, once I believe most methods are covered, I will add the commands to the README as fully functional.
 
 # How to use:
+
+### Important Notice: 
+It has come to my attention that depending on the canvas url you use, the times retrieved are from different regions, sometimes not even from the zone of the institution. Hence the time zone in `canvas_handler.py` must be adjusted accordingly. Currently it is set for PST.
+
 ## Activating the bot in the server:
 Sending the command `!cd-track` or `!cd-mode` *activates* the bot in the server.
 
