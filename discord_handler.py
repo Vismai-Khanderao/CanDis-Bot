@@ -2,6 +2,7 @@ from typing import List
 
 from canvas_handler import CanvasHandler
 
+
 class DiscordHandler:
     """Class for Discord bot to maintain list of active CanvasHandlers
 

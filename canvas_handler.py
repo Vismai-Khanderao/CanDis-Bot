@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import List, Tuple, Union, Optional
+from typing import List, Optional, Tuple, Union
 
 import dateutil.parser.isoparser
 import discord
@@ -19,7 +19,7 @@ class CanvasHandler(Canvas):
 
     Attributes
     ----------
-    courses : `list of canvasapi.Course`
+    courses : `List[canvasapi.Course]`
         Courses tracked in guild mode. Empty if mode is "channels"
 
     guild : `discord.Guild`
@@ -124,13 +124,9 @@ class CanvasHandler(Canvas):
         course_ids = self._ids_converter(course_ids_str)
 
         if self.mode == "channels":
-            if not self.channels_courses:
-                self.channels_courses.append([[msg_channel, []]])
-
-            else:
-                channels = [channel_courses[0] for channel_courses in self.channels_courses]
-                if msg_channel not in channels:
-                    self.channels_courses.append([msg_channel, []])
+            channels = [channel_courses[0] for channel_courses in self.channels_courses]
+            if msg_channel not in channels:
+                self.channels_courses.append([msg_channel, []])
 
 
         if self.mode == "guild":

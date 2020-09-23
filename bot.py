@@ -1,6 +1,6 @@
 import asyncio
 import os
-import sys
+from typing import Optional
 
 import dateutil.parser.isoparser
 import discord
@@ -11,8 +11,6 @@ from dotenv import load_dotenv
 
 from canvas_handler import CanvasHandler
 from discord_handler import DiscordHandler
-
-from typing import Optional
 
 bot = commands.Bot(command_prefix='!cd-')
 
@@ -33,7 +31,6 @@ d_handler = DiscordHandler()
 # TODO: add dm notification option using reaction
 # TODO: make unlive
 # TODO: add options for aliases for courses
-# TODO: make documentation
 
 @bot.event
 async def on_ready(): 
@@ -47,9 +44,9 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# @bot.event
-# async def on_command_error(ctx:commands.Context, error:commands.CommandError):
-#     await ctx.send("```" + str(error) + "```")
+@bot.event
+async def on_command_error(ctx:commands.Context, error:commands.CommandError):
+    await ctx.send("```" + str(error) + "```")
 
 @bot.command()
 @commands.guild_only()
@@ -60,7 +57,7 @@ async def track(ctx:commands.Context, *course_ids:str):
     if not isinstance(c_handler, CanvasHandler):
         return None
 
-    c_handler.track_course(course_ids, ctx.channel)   
+    c_handler.track_course(course_ids, ctx.channel)
 
     embed_var = _get_tracking_courses(c_handler, ctx.message.channel, CANVAS_API_URL)
     await ctx.send(embed=embed_var)
