@@ -11,8 +11,7 @@ from canvasapi.canvas import Canvas
 from canvasapi.course import Course
 from canvasapi.paginated_list import PaginatedList
 
-from extra_func import (get_course_stream, get_course_stream_summary,
-                        get_course_url)
+from extra_func import get_course_stream, get_course_url
 
 
 class CanvasHandler(Canvas):
@@ -276,9 +275,6 @@ class CanvasHandler(Canvas):
                     data_list.append([course_name, course_url, title, url, short_desc, ctime_text, course.id])
         return data_list
     
-    def get_course_stream_summary_ch(self, course_id, base_url, access_token):
-        return get_course_stream_summary(course_id, base_url, access_token)
-
     def get_assignments(self, till:Optional[str], course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel, base_url) -> List[List[str]]:
         """Gets assignments for course(s)
 

@@ -29,17 +29,6 @@ def get_course_stream(course_id:int, base_url, access_token, **kwargs):
         )
     return response.json()
 
-def get_course_stream_summary(course_id, base_url, access_token, **kwargs):
-    access_token = access_token.strip()
-    base_url = get_institution_url(base_url)
-    requester = Requester(base_url, access_token)
-    response = requester.request(
-        "GET",
-        "courses/{}/activity_stream/summary".format(course_id),
-        _kwargs=combine_kwargs(**kwargs)
-        )
-    return response.json()
-
 def get_course_url(course_id:str, base_url) -> str:
     """
     Parameters

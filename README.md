@@ -10,8 +10,7 @@ Me neither, but here we are.
 - Be notified about new announcements/assignments and assignment due dates
 
 ## Currently being implemented:
-- Live notifications, see point below
-- Retrieve announcements from course. Every Professor seems to send out announcements using different methods ._. The function is currently working for some courses, once I believe most methods are covered, I will add the commands to the README as fully functional.
+- Live notifications, see point below (done for announcements, assignment reminder still needs to be done)
 
 # How to use:
 
@@ -52,7 +51,7 @@ Whenever you see `course_ids`, ensure there is only white space between course i
     If after calling, no courses are currently being tracked, the bot will *deactivate* itself in the server, see **Activating the bot in the server:**
 
 ## Getting assignments:
-- `!cd-ass ( | (-till (n-(hour|day|week|month|year)) | YYYY-MM-DD) | -all) ( | course_id | course_ids)`
+- `!cd-ass ( | (-till (n-(hour|day|week|month|year)) | YYYY-MM-DD | YYYY-MM-DD-HH:MM:SS) | -all) ( | course_id | course_ids)`
 
     Gets assignments for courses being tracked in the server if `guild` mode or in the channel if `channels` mode.
     
@@ -61,14 +60,31 @@ Whenever you see `course_ids`, ensure there is only white space between course i
     Second argument must have the id for a course currently being tracked, additionally this argument can also be left blank for sending assignments from ALL courses being tracked.
  
     *Filter till due date:*
-    - `!cd-ass -till` can be in time from now `e.g.: -till 4-hour` or all assignments before certain date `e.g.: -till 2020-10-21`
+    - `!cd-ass -till` can be in time from now `e.g.: -till 4-hour` or all assignments before a certain date `e.g.: -till 2020-10-21`
 
     *All assignments:*
     - `!cd-ass -all` returns ALL assignments.
     
     ### **BEWARE OF POTENTIAL SPAM**
     
-    I take no responsibility for you being kicked from a server for having the bot send 20 assignments multiple times. A warning before the messages are sent may be implemented in the future.
+    I take no responsibility for you being kicked from a server for having the bot send 20 assignments with -all multiple times.
+
+## Getting announcements:
+- `!cd-stream ( | (-till (n-(hour|day|week|month|year)) | YYYY-MM-DD | YYYY-MM-DD-HH:MM:SS) | -all) ( | course_id | course_ids)`
+
+    Every Professor seems to send out announcements using different methods ._. The function is currently working for some courses.
+
+    Gets announcements for courses being tracked in the server if `guild` mode or in the channel if `channels` mode.
+    
+    First argument can be left blank for sending announcements from 2 weeks ago to now.
+
+    Second argument must have the id for a course currently being tracked, additionally this argument can also be left blank for sending assignments from ALL courses being tracked.
+ 
+    *Filter till due date:*
+    - `!cd-stream -till` can be in time from now `e.g.: -till 4-hour` or all announcements after a certain date `e.g.: -till 2020-10-21`
+
+    *All announcements:*
+    - `!cd-stream -all` returns ALL announcements.
 
 ## Changing modes:
 - `!cd-mode (guild | channels)`

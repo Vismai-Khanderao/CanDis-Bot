@@ -171,14 +171,6 @@ async def stream(ctx:commands.Context, *args):
         embed_var.add_field(name="Created at", value=data[5], inline=True)
         await ctx.send(embed=embed_var)
 
-@bot.command()
-async def stream_sum(ctx:commands.Context, arg:str):
-    c_handler = _get_canvas_handler(ctx.message.guild)
-    if not isinstance(c_handler, CanvasHandler):
-        return None
-
-    await ctx.send(c_handler.get_course_stream_summary_ch(arg, CANVAS_API_URL, CANVAS_API_KEY))
-
 def _add_guild(guild:discord.Guild):
     if guild not in [ch.guild for ch in d_handler.canvas_handlers]:
         d_handler.canvas_handlers.append(CanvasHandler(CANVAS_API_URL, CANVAS_API_KEY, guild))
