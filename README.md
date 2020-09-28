@@ -78,7 +78,7 @@ Whenever you see `course_ids`, ensure there is only white space between course i
     
     First argument can be left blank for sending announcements from 2 weeks ago to now.
 
-    Second argument must have the id for a course currently being tracked, additionally this argument can also be left blank for sending assignments from ALL courses being tracked.
+    Second argument must have the id for a course currently being tracked, additionally this argument can also be left blank for sending announcements from ALL courses being tracked.
  
     *Filter till due date:*
     - `!cd-stream -till` can be in time from now `e.g.: -till 4-hour` or all announcements after a certain date `e.g.: -till 2020-10-21`
