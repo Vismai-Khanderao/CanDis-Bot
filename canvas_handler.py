@@ -1,5 +1,6 @@
+import re
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import dateutil.parser.isoparser
 import discord
@@ -31,6 +32,9 @@ class CanvasHandler(Canvas):
 
     channels_courses : `List[discord.Channel, List[canvasapi.Course]]`
         Channels and the specific courses tracked for them. Empty if mode is "guild".
+    
+    timings : `Dict[str, str]`
+        Contains course and its last announcement date and time.
     """
 
     def __init__(self, API_URL, API_KEY, guild:discord.Guild):
@@ -52,6 +56,7 @@ class CanvasHandler(Canvas):
         self._mode = "guild"
         self._channels_courses : List[Union[discord.TextChannel, List[Course]]] = [] # [[channel, [courses]]]
         self._live_channels : List[discord.TextChannel] = []
+        self._timings : Dict[str, str] = {} 
     
     @property
     def courses(self) -> List[Course]:
@@ -75,6 +80,7 @@ class CanvasHandler(Canvas):
         self.courses = []
         self.channels_courses = []
         self.live_channels = []
+        self.timings = {}
     
     @property
     def channels_courses(self) -> List[Union[discord.TextChannel, List[Course]]]:
@@ -91,9 +97,17 @@ class CanvasHandler(Canvas):
     @live_channels.setter
     def live_channels(self, live_channels):
         self._live_channels = live_channels
+
+    @property
+    def timings(self):
+        return self._timings
+    
+    @timings.setter
+    def timings(self, timings):
+        self._timings = timings
         
     def _ids_converter(self, ids:Tuple[str, ...]) -> List[int]:
-        """Converts list of string to list of int
+        """Converts list of string to list of int, removes duplicates
 
         Parameters
         ----------
@@ -108,6 +122,7 @@ class CanvasHandler(Canvas):
         temp = []
         for i in ids:
             temp.append(int(i))
+        temp = list(dict.fromkeys(temp))
         return temp
            
     def track_course(self, course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel):
@@ -142,6 +157,10 @@ class CanvasHandler(Canvas):
                         c_ids = [c.id for c in channel_courses[1]]
                         if i not in c_ids:
                             channel_courses[1].append(self.get_course(i))
+        
+        for c in course_ids_str:
+            if c not in self.timings:
+                self.timings[c] = (datetime.utcnow() - timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S")
                         
     def untrack_course(self, course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel):
         """Untracks course(s)
@@ -171,13 +190,19 @@ class CanvasHandler(Canvas):
                             del channel_courses[1][c_ids.index(i)]
                             if len(channel_courses[1]) == 0:
                                 self.channels_courses.remove(channel_courses)
+        
+        for c in course_ids_str:
+            if c in self.timings:
+                self.timings.pop(c)
                         
-    def get_course_stream_ch(self, course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel, base_url, access_token) -> List[List[str]]:
-        # TODO: remove possible duplicate courses, i.e. !cd-stream 53540 53540
+    def get_course_stream_ch(self, till:Optional[str], course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel, base_url, access_token) -> List[List[str]]:
         """Gets announcements for course(s)
 
         Parameters
         ----------
+        till : `None or str`
+            Date/Time from due date of assignments
+
         course_ids_str : `Tuple[str, ...]`
             Tuple of course ids
 
@@ -199,15 +224,24 @@ class CanvasHandler(Canvas):
         
         course_stream_list = []
         if self.mode == "guild":
-            for i in course_ids:
-                if i in [c.id for c in self.courses]:
-                    course_stream_list.append(get_course_stream(i, base_url, access_token))
+            for c in self.courses:
+                if course_ids:
+                    if c.id in course_ids:
+                        course_stream_list.append(get_course_stream(c.id, base_url, access_token))
+                else:
+                    course_stream_list.append(get_course_stream(c.id, base_url, access_token))
         elif self.mode == "channels":
-            for i in course_ids:
-                for channel_courses in self.channels_courses:
-                    if msg_channel == channel_courses[0]:
-                        if i in [c.id for c in channel_courses[1]]:
-                            course_stream_list.append(get_course_stream(i, base_url, access_token))
+            for channel_courses in self.channels_courses:
+                if msg_channel == channel_courses[0]:
+                    for c in channel_courses[1]:
+                        if course_ids:
+                            if c.id in course_ids:
+                                course_stream_list.append(get_course_stream(c.id, base_url, access_token))
+                        else:
+                            course_stream_list.append(get_course_stream(c.id, base_url, access_token))
+
+        if till is not None:
+            till_timedelta = self._make_timedelta(till)
 
         data_list = []
         for course_stream in course_stream_list:
@@ -231,9 +265,15 @@ class CanvasHandler(Canvas):
                     if ctime_iso is None:
                         ctime_text = "No info"
                     else:
-                        ctime_text = (dateutil.parser.isoparse(ctime_iso)+time_shift).strftime("%Y-%m-%d %H:%M:%S")
+                        ctime_iso_parsed = (dateutil.parser.isoparse(ctime_iso)+time_shift)
+                        ctime_timedelta = ctime_iso_parsed - (datetime.utcnow().replace(tzinfo=pytz.utc)+time_shift)
+                        if till is not None:
+                            if ctime_timedelta < -till_timedelta:
+                                # since announcements are in order
+                                break
+                        ctime_text = ctime_iso_parsed.strftime("%Y-%m-%d %H:%M:%S")
                     
-                    data_list.append([course_name, course_url, title, url, short_desc, ctime_text])
+                    data_list.append([course_name, course_url, title, url, short_desc, ctime_text, course.id])
         return data_list
     
     def get_course_stream_summary_ch(self, course_id, base_url, access_token):
@@ -340,10 +380,11 @@ class CanvasHandler(Canvas):
                         continue
                     if till is not None:
                         if dtime_timedelta > till_timedelta:
+                            # since assignments are not in order
                             continue
                     dtime_text = dtime_iso_parsed.strftime("%Y-%m-%d %H:%M:%S")
                                 
-                data_list.append([course_name, course_url, title, url, short_desc, ctime_text, dtime_text])
+                data_list.append([course_name, course_url, title, url, short_desc, ctime_text, dtime_text, course.id])
 
         return data_list
 
@@ -360,7 +401,7 @@ class CanvasHandler(Canvas):
         `datetime.timedelta`
             Time delta between till and now
         """
-        till = till_str.split('-')
+        till = re.split(r"-|:", till_str)
         if till[1] in ["hour", "day", "week", "month", "year"]:
             num = float(till[0])
             options = {"hour"  : timedelta(hours=num),
@@ -368,12 +409,21 @@ class CanvasHandler(Canvas):
                        "week"  : timedelta(weeks=num),
                        "month" : timedelta(days=30*num),
                        "year"  : timedelta(days=365*num)}
-            return options[till[1]]
+            return abs(options[till[1]])
+        elif len(till) == 3:
+            year = int(till[0])
+            month = int(till[1])
+            day = int(till[2])
+            return abs(datetime(year, month, day) - (datetime.utcnow() - timedelta(hours=7)))
         else:
             year = int(till[0])
             month = int(till[1])
             day = int(till[2])
-            return datetime(year, month, day) - (datetime.utcnow() - timedelta(hours=7))
+            hour = int(till[3])
+            minute = int(till[4])
+            second = int(till[5])
+            return abs(datetime(year, month, day, hour, minute, second) - (datetime.utcnow() - timedelta(hours=7)))
+
 
     def get_course_names(self, msg_channel:discord.TextChannel, url) -> List[List[str]]:
         """Gives a list of tracked courses and their urls

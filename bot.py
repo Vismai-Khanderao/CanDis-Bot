@@ -1,5 +1,7 @@
 import asyncio
 import os
+import re
+from datetime import datetime, timedelta
 from typing import Optional
 
 import dateutil.parser.isoparser
@@ -24,12 +26,11 @@ DISCORD_KEY = os.getenv('DISCORD_KEY')
 
 d_handler = DiscordHandler()
 
-# TODO: make live assignment reminder/new announcement feature, using course_stream and check announcememts
+# TODO: make live assignment reminder/new announcement feature, using course_stream
 # TODO: reduce duplication in track_course, untrack_course, get_course_stream by passing func to helper
 # TODO: store information to resume after stopping
 # TODO: use method to remove guilds without courses, and for invalid track and mode
 # TODO: add dm notification option using reaction
-# TODO: make unlive
 # TODO: add options for aliases for courses
 
 @bot.event
@@ -106,7 +107,30 @@ async def live(ctx:commands.Context):
     c_handler = _get_canvas_handler(ctx.message.guild)
     if not isinstance(c_handler, CanvasHandler):
         return None
-    c_handler.live_channels.append(ctx.message.channel)
+    if ctx.message.channel not in c_handler.live_channels:
+        c_handler.live_channels.append(ctx.message.channel)
+
+@bot.command()
+@commands.guild_only()
+async def unlive(ctx:commands.Context):
+    c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
+    if ctx.message.channel in c_handler.live_channels:
+        c_handler.live_channels.remove(ctx.message.channel)
+
+@bot.command()
+@commands.guild_only()
+async def info(ctx:commands.Context):
+    c_handler = _get_canvas_handler(ctx.message.guild)
+    if not isinstance(c_handler, CanvasHandler):
+        return None
+    await ctx.send(str(c_handler.courses) + "\n" +
+                   str(c_handler.guild) + "\n" + 
+                   str(c_handler.mode) + "\n" +
+                   str(c_handler.channels_courses) + "\n" +
+                   str(c_handler.live_channels) + "\n" +
+                   str(c_handler.timings))
 
 @bot.command()
 @commands.guild_only()
@@ -125,12 +149,22 @@ async def mode(ctx:commands.Context, mode:str):
 
 @bot.command()
 @commands.guild_only()
-async def stream(ctx:commands.Context, *course_ids:str):
+async def stream(ctx:commands.Context, *args):
     c_handler = _get_canvas_handler(ctx.message.guild)
     if not isinstance(c_handler, CanvasHandler):
         return None
+    
+    if args and args[0].startswith('-till'):
+        till = args[1]
+        course_ids = args[2:]
+    elif args and args[0].startswith('-all'):
+        till = None
+        course_ids = args[1:]
+    else:
+        till = "2-week"
+        course_ids = args
 
-    for data in c_handler.get_course_stream_ch(course_ids, ctx.message.channel, CANVAS_API_URL, CANVAS_API_KEY):
+    for data in c_handler.get_course_stream_ch(till, course_ids, ctx.message.channel, CANVAS_API_URL, CANVAS_API_KEY):
         embed_var=discord.Embed(title=data[2], url=data[3], description=data[4], color=CANVAS_COLOR)
         embed_var.set_author(name=data[0],url=data[1])
         embed_var.set_thumbnail(url=CANVAS_THUMBNAIL_URL)
@@ -168,8 +202,21 @@ async def live_tracking():
     while True:
         for ch in d_handler.canvas_handlers:
             if len(ch.live_channels) > 0:
-                for channel in ch.live_channels:
-                    await channel.send("Update")
+                if ch.mode == "guild":
+                    for c in ch.courses:
+                        till = ch.timings[str(c.id)]
+                        till = re.sub(r"\s", "-", till)
+                        data_list = ch.get_course_stream_ch(till, (str(c.id),), None, CANVAS_API_URL, CANVAS_API_KEY)
+                        for data in data_list:
+                            embed_var=discord.Embed(title=data[2], url=data[3], description=data[4], color=CANVAS_COLOR)
+                            embed_var.set_author(name=data[0],url=data[1])
+                            embed_var.set_thumbnail(url=CANVAS_THUMBNAIL_URL)
+                            embed_var.add_field(name="Created at", value=data[5], inline=True)
+                            for channel in ch.live_channels:
+                                await channel.send(embed=embed_var)
+                        if data_list:
+                            # latest announcement first
+                            ch.timings[str(c.id)] = data_list[0][5]
         await asyncio.sleep(10)
 
 bot.loop.create_task(live_tracking())
