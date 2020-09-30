@@ -2,7 +2,7 @@ import asyncio
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List, Optional
 
 import dateutil.parser.isoparser
 import discord
@@ -26,9 +26,7 @@ DISCORD_KEY = os.getenv('DISCORD_KEY')
 
 d_handler = DiscordHandler()
 
-# TODO: make live assignment reminder/new announcement feature, using course_stream
 # TODO: reduce duplication in track_course, untrack_course, get_course_stream by passing func to helper
-# TODO: store information to resume after stopping
 # TODO: use method to remove guilds without courses, and for invalid track and mode
 # TODO: add dm notification option using reaction
 # TODO: add options for aliases for courses
@@ -125,12 +123,15 @@ async def info(ctx:commands.Context):
     c_handler = _get_canvas_handler(ctx.message.guild)
     if not isinstance(c_handler, CanvasHandler):
         return None
+
     await ctx.send(str(c_handler.courses) + "\n" +
                    str(c_handler.guild) + "\n" + 
                    str(c_handler.mode) + "\n" +
                    str(c_handler.channels_courses) + "\n" +
                    str(c_handler.live_channels) + "\n" +
-                   str(c_handler.timings))
+                   str(c_handler.timings) + "\n" +
+                   str(c_handler.due_week) + "\n" +
+                   str(c_handler.due_day))
 
 @bot.command()
 @commands.guild_only()
@@ -194,11 +195,19 @@ async def live_tracking():
     while True:
         for ch in d_handler.canvas_handlers:
             if len(ch.live_channels) > 0:
+                notify_role = None
+                for role in ch.guild.roles:
+                    if role.name == "notify":
+                        notify_role = role
+                        break
                 if ch.mode == "guild":
                     for c in ch.courses:
                         till = ch.timings[str(c.id)]
                         till = re.sub(r"\s", "-", till)
                         data_list = ch.get_course_stream_ch(till, (str(c.id),), None, CANVAS_API_URL, CANVAS_API_KEY)
+                        if notify_role and data_list:
+                            for channel in ch.live_channels:
+                                await channel.send(notify_role.mention)
                         for data in data_list:
                             embed_var=discord.Embed(title=data[2], url=data[3], description=data[4], color=CANVAS_COLOR)
                             embed_var.set_author(name=data[0],url=data[1])
@@ -211,5 +220,45 @@ async def live_tracking():
                             ch.timings[str(c.id)] = data_list[0][5]
         await asyncio.sleep(10)
 
+async def assignment_reminder():
+    while True:
+        for ch in d_handler.canvas_handlers:
+            if len(ch.live_channels) > 0:
+                notify_role = None
+                for role in ch.guild.roles:
+                    if role.name == "notify":
+                        notify_role = role
+                        break
+                if ch.mode == "guild":
+                    for c in ch.courses:
+                        data_list = ch.get_assignments("1-week", (str(c.id),), None, CANVAS_API_URL)
+                        recorded_ass_ids = ch.due_week[str(c.id)]
+                        ass_ids = await _assignment_sender(ch, data_list, recorded_ass_ids, notify_role)
+                        ch.due_week[str(c.id)] = ass_ids
+
+                        data_list = ch.get_assignments("1-day", (str(c.id),), None, CANVAS_API_URL)
+                        recorded_ass_ids = ch.due_day[str(c.id)]
+                        ass_ids = await _assignment_sender(ch, data_list, recorded_ass_ids, notify_role)
+                        ch.due_day[str(c.id)] = ass_ids
+        await asyncio.sleep(10)
+
+async def _assignment_sender(ch:CanvasHandler, data_list:List[str], recorded_ass_ids:List[str], notify_role:Optional[discord.Role]) -> List[str]:
+    ass_ids = [data[-1] for data in data_list]
+    not_recorded = [data_list[ass_ids.index(i)] for i in ass_ids if i not in recorded_ass_ids]
+    if notify_role and not_recorded:
+        for channel in ch.live_channels:
+            await channel.send(notify_role.mention)
+    for data in not_recorded:
+        embed_var=discord.Embed(title=data[2], url=data[3], description=data[4], color=CANVAS_COLOR)
+        embed_var.set_author(name=data[0],url=data[1])
+        embed_var.set_thumbnail(url=CANVAS_THUMBNAIL_URL)
+        embed_var.add_field(name="Created at", value=data[5], inline=True)
+        embed_var.add_field(name="Due at", value=data[6], inline=True)
+        for channel in ch.live_channels:
+            await channel.send(embed=embed_var)
+    return ass_ids
+
+
 bot.loop.create_task(live_tracking())
+bot.loop.create_task(assignment_reminder())
 bot.run(DISCORD_KEY)

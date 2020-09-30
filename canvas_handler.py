@@ -34,6 +34,12 @@ class CanvasHandler(Canvas):
     
     timings : `Dict[str, str]`
         Contains course and its last announcement date and time.
+    
+    due_week : `Dict[str, List[str]]`
+        Contains course and assignment ids due in less than a week.
+
+    due_day : `Dict[str, List[str]]`
+        Contains course and assignment ids due in less than a day. 
     """
 
     def __init__(self, API_URL, API_KEY, guild:discord.Guild):
@@ -56,6 +62,8 @@ class CanvasHandler(Canvas):
         self._channels_courses : List[Union[discord.TextChannel, List[Course]]] = [] # [[channel, [courses]]]
         self._live_channels : List[discord.TextChannel] = []
         self._timings : Dict[str, str] = {} 
+        self._due_week : Dict[str, List[str]] = {}
+        self._due_day : Dict[str, List[str]] = {}
     
     @property
     def courses(self) -> List[Course]:
@@ -80,6 +88,8 @@ class CanvasHandler(Canvas):
         self.channels_courses = []
         self.live_channels = []
         self.timings = {}
+        self.due_week = {}
+        self.due_day = {}
     
     @property
     def channels_courses(self) -> List[Union[discord.TextChannel, List[Course]]]:
@@ -104,6 +114,22 @@ class CanvasHandler(Canvas):
     @timings.setter
     def timings(self, timings):
         self._timings = timings
+    
+    @property
+    def due_week(self):
+        return self._due_week
+    
+    @due_week.setter
+    def due_week(self, due_week):
+        self._due_week = {}
+    
+    @property
+    def due_day(self):
+        return self._due_day
+    
+    @due_day.setter
+    def due_day(self, due_day):
+        self._due_day = {}
         
     def _ids_converter(self, ids:Tuple[str, ...]) -> List[int]:
         """Converts list of string to list of int, removes duplicates
@@ -160,6 +186,10 @@ class CanvasHandler(Canvas):
         for c in course_ids_str:
             if c not in self.timings:
                 self.timings[c] = (datetime.utcnow() - timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S")
+            if c not in self.due_week:
+                self.due_week[c] = []
+            if c not in self.due_day:
+                self.due_day[c] = []
                         
     def untrack_course(self, course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel):
         """Untracks course(s)
@@ -193,6 +223,10 @@ class CanvasHandler(Canvas):
         for c in course_ids_str:
             if c in self.timings:
                 self.timings.pop(c)
+            if c in self.due_week:
+                self.due_week.pop(c)
+            if c in self.due_day:
+                self.due_day.pop(c)
                         
     def get_course_stream_ch(self, till:Optional[str], course_ids_str:Tuple[str, ...], msg_channel:discord.TextChannel, base_url, access_token) -> List[List[str]]:
         """Gets announcements for course(s)
@@ -245,7 +279,6 @@ class CanvasHandler(Canvas):
         data_list = []
         for course_stream in course_stream_list:
             for item in course_stream:
-                # TODO: check for more types/only works for cs221
                 if item['type'] in ['Conversation']:
                     course = self.get_course(item['course_id'])
 
@@ -349,6 +382,8 @@ class CanvasHandler(Canvas):
             for assignment in course_assignments[1]:
                 course_url = get_course_url(course.id, base_url)
 
+                ass_id = assignment.__getattribute__("id")
+
                 title = "Assignment: " + assignment.__getattribute__("name")
                 
                 url = assignment.__getattribute__("html_url")
@@ -379,8 +414,7 @@ class CanvasHandler(Canvas):
                             # since assignments are not in order
                             continue
                     dtime_text = dtime_iso_parsed.strftime("%Y-%m-%d %H:%M:%S")
-                                
-                data_list.append([course_name, course_url, title, url, short_desc, ctime_text, dtime_text, course.id])
+                data_list.append([course_name, course_url, title, url, short_desc, ctime_text, dtime_text, course.id, ass_id])
 
         return data_list
 
