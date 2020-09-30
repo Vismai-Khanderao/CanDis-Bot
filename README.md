@@ -1,7 +1,7 @@
 # <img src="canvas_discord_logo.png" alt="drawing" width="50"/> CanDis-Bot 
 Canvas Instructure integration for Discord bot.
 
-## Ever wanted to lose a round because of a new assignment?
+## Ever wanted to lose a 14-15 round because of a new assignment?
 Me neither, but here we are.
 
 ## Features:
@@ -10,7 +10,7 @@ Me neither, but here we are.
 - Be notified about new announcements/assignments and assignment due dates
 
 ## Currently being implemented:
-- Live notifications, see point below (done for announcements, assignment reminder still needs to be done)
+- Live notifications for `channels` mode
 
 # How to use:
 
@@ -95,6 +95,20 @@ Whenever you see `course_ids`, ensure there is only white space between course i
 
     **This essentially *resets* the bot in the server, it untracks all courses and stops live updates in the previously live channels.**
 
+## Live announcement updates and assignment reminders:
+- `!cd-live`
+
+    Live announcements and assignment reminders are sent to the channel this command is called in.
+
+    If bot is running `guild` mode, then updates are given for all courses being tracked.
+
+    Updates for `channels` mode is being implemented.
+
+    Users with a **@notify** role are pinged before update is sent.
+
+- `!cd-unlive`
+
+    Stops sending updates to the channel it is called in.
 
     
 
