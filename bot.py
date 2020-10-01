@@ -218,7 +218,7 @@ async def live_tracking():
                         if data_list:
                             # latest announcement first
                             ch.timings[str(c.id)] = data_list[0][5]
-        await asyncio.sleep(10)
+        await asyncio.sleep(3600)
 
 async def assignment_reminder():
     while True:
@@ -240,7 +240,7 @@ async def assignment_reminder():
                         recorded_ass_ids = ch.due_day[str(c.id)]
                         ass_ids = await _assignment_sender(ch, data_list, recorded_ass_ids, notify_role)
                         ch.due_day[str(c.id)] = ass_ids
-        await asyncio.sleep(10)
+        await asyncio.sleep(3600)
 
 async def _assignment_sender(ch:CanvasHandler, data_list:List[str], recorded_ass_ids:List[str], notify_role:Optional[discord.Role]) -> List[str]:
     ass_ids = [data[-1] for data in data_list]
