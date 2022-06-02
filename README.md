@@ -2,15 +2,14 @@
 Canvas Instructure integration for Discord bot.
 
 ## Ever wanted to lose a 14-15 round because of a new assignment?
-Me neither, but here we are.
+
+### Update: 
+This repo is no longer supported, source code and efforts for this bot has been adapted with additional features by me and others over on [cs221bot](https://github.com/Person314159/cs221bot) (Official course Discord bot for UBC CPSC 221)
 
 ## Features:
 - Track canvas courses server-wide or individual channel-wide
 - Retrieve linked assignments and announcements
 - Be notified about new announcements/assignments and assignment due dates
-
-## Currently being implemented:
-- Live notifications for `channels` mode
 
 # How to use:
 
@@ -67,8 +66,6 @@ Whenever you see `course_ids`, ensure there is only white space between course i
     
     ### **BEWARE OF POTENTIAL SPAM**
     
-    I take no responsibility for you being kicked from a server for having the bot send 20 assignments with -all multiple times.
-
 ## Getting announcements:
 - `!cd-stream ( | (-till (n-(hour|day|week|month|year)) | YYYY-MM-DD | YYYY-MM-DD-HH:MM:SS) | -all) ( | course_id | course_ids)`
 
